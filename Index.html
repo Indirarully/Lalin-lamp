@@ -1,265 +1,422 @@
-import { useState, useEffect } from 'react';
-import { Car, Timer } from 'lucide-react';
-
-export default function MultiTrafficLightSystem() {
-  // Traffic light configurations dengan waktu yang berbeda
-  const trafficLights = [
-    {
-      id: 1,
-      name: 'Persimpangan Utara',
-      position: 'top-20 left-1/4',
-      intervals: { red: 8000, yellow: 3000, green: 6000 }, // Total 17 detik
-      carCount: 0
-    },
-    {
-      id: 2,
-      name: 'Persimpangan Selatan',
-      position: 'bottom-20 right-1/4',
-      intervals: { red: 6000, yellow: 2000, green: 7000 }, // Total 15 detik
-      carCount: 0
-    },
-    {
-      id: 3,
-      name: 'Persimpangan Timur',
-      position: 'top-1/2 right-20',
-      intervals: { red: 7000, yellow: 2500, green: 5000 }, // Total 14.5 detik
-      carCount: 0
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Sistem Multi Lampu Lalu Lintas - Static</title>
+  <style>
+    :root{
+      --bg1: #0f1724;
+      --bg2: #0b1020;
+      --card: #111218;
+      --muted: #9ca3af;
+      --glass: rgba(255,255,255,0.03);
+      --accent-blue: #2563eb;
+      --accent-orange: #f97316;
     }
-  ];
-
-  const [lights, setLights] = useState(
-    trafficLights.map((light, index) => ({
-      ...light,
-      activeLight: index === 0 ? 'red' : index === 1 ? 'green' : 'yellow',
-      timer: 0,
-      carCount: Math.floor(Math.random() * 10) + 5
-    }))
-  );
-  
-  const [isAuto, setIsAuto] = useState(false);
-  const [globalView, setGlobalView] = useState(true);
-
-  useEffect(() => {
-    if (!isAuto) return;
-
-    const interval = setInterval(() => {
-      setLights(prevLights =>
-        prevLights.map(light => {
-          const currentInterval = light.intervals[light.activeLight];
-          const newTimer = light.timer + 100;
-
-          if (newTimer >= currentInterval) {
-            let nextLight;
-            let newCarCount = light.carCount;
-
-            if (light.activeLight === 'red') {
-              nextLight = 'green';
-              // Mobil mulai bergerak saat hijau
-              newCarCount = Math.max(0, light.carCount - Math.floor(Math.random() * 5) - 3);
-            } else if (light.activeLight === 'green') {
-              nextLight = 'yellow';
-              // Tambah mobil yang datang
-              newCarCount = light.carCount + Math.floor(Math.random() * 3);
-            } else {
-              nextLight = 'red';
-              // Mobil berhenti, tambah mobil baru
-              newCarCount = light.carCount + Math.floor(Math.random() * 4) + 2;
-            }
-
-            return {
-              ...light,
-              activeLight: nextLight,
-              timer: 0,
-              carCount: Math.min(20, newCarCount) // Max 20 mobil
-            };
-          }
-
-          return { ...light, timer: newTimer };
-        })
-      );
-    }, 100);
-
-    return () => clearInterval(interval);
-  }, [isAuto]);
-
-  const getLightColor = (light, color) => {
-    if (light === color) {
-      if (color === 'red') return 'bg-red-600 shadow-[0_0_25px_rgba(220,38,38,0.9)]';
-      if (color === 'yellow') return 'bg-amber-400 shadow-[0_0_25px_rgba(251,191,36,0.9)]';
-      if (color === 'green') return 'bg-emerald-500 shadow-[0_0_25px_rgba(16,185,129,0.9)]';
+    html,body{height:100%;margin:0;font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial;}
+    body{
+      background: linear-gradient(135deg,#0b1220 0%, #0f1724 45%, #081018 100%);
+      color:#e6eef8;
+      -webkit-font-smoothing:antialiased;
+      -moz-osx-font-smoothing:grayscale;
+      padding:20px;
+      box-sizing:border-box;
     }
-    return 'bg-gray-800';
-  };
+    .container{max-width:1200px;margin:0 auto;}
+    h1{font-size:28px;margin:0 0 6px;}
+    p.lead{color:var(--muted);margin:0 0 14px;font-size:13px;}
 
-  const getStatusText = (light) => {
-    if (light === 'red') return 'Berhenti';
-    if (light === 'yellow') return 'Bersiap';
-    return 'Jalan';
-  };
+    /* Control Panel */
+    .controls{background:var(--card);padding:14px;border-radius:12px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;border:1px solid rgba(255,255,255,0.04);box-shadow:0 10px 30px rgba(2,6,23,0.6);}
+    .btn{padding:10px 18px;border-radius:10px;border:0;font-weight:600;cursor:pointer;color:white;transition:all .18s}
+    .btn:active{transform:translateY(1px)}
+    .btn.play{background:var(--accent-blue);box-shadow:0 8px 24px rgba(37,99,235,0.15)}
+    .btn.pause{background:var(--accent-orange);box-shadow:0 8px 24px rgba(249,115,22,0.12)}
+    .btn.view{background:#6d28d9}
+    .stat{background:rgba(255,255,255,0.03);padding:10px;border-radius:10px;display:flex;gap:8px;align-items:center}
 
-  const getTimerColor = (light) => {
-    if (light === 'red') return 'text-red-500';
-    if (light === 'yellow') return 'text-amber-400';
-    return 'text-emerald-500';
-  };
+    /* Map / Display */
+    .display-map{background:#0f1724;border-radius:14px;padding:20px;min-height:560px;position:relative;border:1px solid rgba(255,255,255,0.04);overflow:hidden}
+    .grid-line{position:absolute;left:0;right:0;height:1px;top:50%;background:rgba(255,255,255,0.06)}
+    .grid-col{position:absolute;top:0;bottom:0;width:1px;left:50%;background:rgba(255,255,255,0.06)}
 
-  const setManualLight = (id, color) => {
-    setIsAuto(false);
-    setLights(prevLights =>
-      prevLights.map(light =>
-        light.id === id ? { ...light, activeLight: color, timer: 0 } : light
-      )
-    );
-  };
+    /* Traffic Card */
+    .tcard{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));padding:14px;border-radius:12px;color:#e6eef8;min-width:170px;max-width:220px;border:1px solid rgba(255,255,255,0.03);box-shadow:0 8px 30px rgba(2,6,23,0.6)}
+    .tcard.compact{padding:10px;min-width:130px;max-width:150px}
+    .tcard .title{font-weight:700;font-size:13px;margin-bottom:8px}
+    .tcard .row{display:flex;align-items:center;justify-content:space-between}
+    .bulbs{display:flex;gap:8px;margin:8px 0}
+    .bulb{width:44px;height:44px;border-radius:50%;background:#0f1724;box-shadow:inset 0 -6px 18px rgba(0,0,0,0.6);border:1px solid rgba(255,255,255,0.02);transition:all .25s}
+    .bulb.small{width:32px;height:32px}
+    .bulb.red.active{background:#dc2626;box-shadow:0 0 20px rgba(220,38,38,0.85)}
+    .bulb.yellow.active{background:#f59e0b;box-shadow:0 0 20px rgba(245,158,11,0.85)}
+    .bulb.green.active{background:#10b981;box-shadow:0 0 20px rgba(16,185,129,0.85)}
+    .status{color:var(--muted);font-size:13px}
+    .cars{display:flex;align-items:center;gap:8px;color:#90cdf4;font-weight:700}
+    .controls-row{display:flex;gap:8px;margin-top:10px}
+    .controls-row .tiny{padding:6px 8px;font-size:13px;border-radius:8px;border:0;background:rgba(255,255,255,0.03);color:#fff;cursor:pointer}
 
-  const TrafficLightComponent = ({ light, compact = false }) => {
-    const remainingTime = Math.ceil((light.intervals[light.activeLight] - light.timer) / 1000);
+    /* Positions on map */
+    .pos{position:absolute;transform:translate(-50%,-50%);}
 
-    return (
-      <div className={bg-gray-900 rounded-2xl ${compact ? 'p-4' : 'p-6'} shadow-2xl border-2 border-gray-700}>
-        <div className="flex items-center justify-between mb-3">
-          <h3 className={${compact ? 'text-xs' : 'text-sm'} font-bold text-white}>{light.name}</h3>
-          {isAuto && (
-            <div className={flex items-center gap-1 ${getTimerColor(light.activeLight)}}>
-              <Timer size={compact ? 14 : 16} />
-              <span className={${compact ? 'text-sm' : 'text-lg'} font-bold}>{remainingTime}s</span>
-            </div>
-          )}
-        </div>
+    /* Detail grid */
+    .detail-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
 
-        <div className={flex ${compact ? 'gap-2' : 'gap-3'} mb-3}>
-          <div className={${compact ? 'w-8 h-8' : 'w-12 h-12'} rounded-full transition-all duration-300 ${getLightColor(light.activeLight, 'red')}} />
-          <div className={${compact ? 'w-8 h-8' : 'w-12 h-12'} rounded-full transition-all duration-300 ${getLightColor(light.activeLight, 'yellow')}} />
-          <div className={${compact ? 'w-8 h-8' : 'w-12 h-12'} rounded-full transition-all duration-300 ${getLightColor(light.activeLight, 'green')}} />
-        </div>
+    /* Info section */
+    .info{background:var(--card);padding:12px;border-radius:12px;margin-top:16px;border:1px solid rgba(255,255,255,0.03)}
+    .info-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+    .info-box{background:rgba(255,255,255,0.02);padding:8px;border-radius:8px;font-size:13px;color:var(--muted)}
 
-        <div className="flex items-center justify-between">
-          <p className={${compact ? 'text-xs' : 'text-sm'} text-gray-300}>
-            {getStatusText(light.activeLight)}
-          </p>
-          <div className="flex items-center gap-1">
-            <Car size={compact ? 14 : 16} className="text-blue-400" />
-            <span className={${compact ? 'text-xs' : 'text-sm'} text-blue-400 font-semibold}>{light.carCount}</span>
-          </div>
-        </div>
+    /* small */
+    @media (max-width:900px){
+      .detail-grid{grid-template-columns:repeat(2,1fr)}
+      .tcard{max-width:100%}
+    }
+    @media (max-width:640px){
+      .detail-grid{grid-template-columns:1fr}
+      .bulb{width:36px;height:36px}
+      .bulb.small{width:26px;height:26px}
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div style="text-align:center;margin-bottom:12px">
+      <h1>Sistem Multi Lampu Lalu Lintas</h1>
+      <p class="lead">Simulasi persimpangan (3 titik) — otomatis/manual, timer, dan statistik mobil.</p>
+    </div>
 
-        {!compact && (
-          <div className="flex gap-2 mt-3">
-            <button
-              onClick={() => setManualLight(light.id, 'red')}
-              className="flex-1 px-2 py-1 bg-red-600 hover:bg-red-700 text-white rounded text-xs font-semibold transition-colors"
-            >
-              R
-            </button>
-            <button
-              onClick={() => setManualLight(light.id, 'yellow')}
-              className="flex-1 px-2 py-1 bg-amber-500 hover:bg-amber-600 text-white rounded text-xs font-semibold transition-colors"
-            >
-              Y
-            </button>
-            <button
-              onClick={() => setManualLight(light.id, 'green')}
-              className="flex-1 px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-xs font-semibold transition-colors"
-            >
-              G
-            </button>
-          </div>
-        )}
-      </div>
-    );
-  };
+    <div class="controls" role="region" aria-label="control panel">
+      <button id="autoBtn" class="btn play" title="Start/Pause Otomatis">▶ Mulai Otomatis</button>
+      <button id="viewBtn" class="btn view">📋 Detail View</button>
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-gray-900 to-slate-800 p-4">
-      <div className="max-w-7xl mx-auto">
-        <div className="text-center mb-6">
-          <h1 className="text-3xl md:text-4xl font-bold text-white mb-2">
-            Sistem Multi Lampu Lalu Lintas
-          </h1>
-          <p className="text-gray-400 text-sm">Simulasi persimpangan dengan waktu berbeda</p>
-        </div>
-
-        {/* Control Panel */}
-        <div className="bg-gray-800 rounded-xl p-4 mb-6 shadow-xl border border-gray-700">
-          <div className="flex flex-wrap gap-4 items-center justify-center">
-            <button
-              onClick={() => setIsAuto(!isAuto)}
-              className={`px-6 py-3 rounded-lg font-semibold transition-all ${
-                isAuto 
-                  ? 'bg-orange-600 hover:bg-orange-700 shadow-lg shadow-orange-500/50' 
-                  : 'bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-500/50'
-              } text-white`}
-            >
-              {isAuto ? '⏸ Pause Otomatis' : '▶ Mulai Otomatis'}
-            </button>
-            
-            <button
-              onClick={() => setGlobalView(!globalView)}
-              className="px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-semibold transition-all shadow-lg shadow-purple-500/50"
-            >
-              {globalView ? '📋 Detail View' : '🗺 Global View'}
-            </button>
-
-            <div className="flex items-center gap-2 bg-gray-900 px-4 py-2 rounded-lg">
-              <Car className="text-blue-400" size={20} />
-              <span className="text-white font-semibold">
-                Total: {lights.reduce((sum, light) => sum + light.carCount, 0)} mobil
-              </span>
-            </div>
-          </div>
-
-          {isAuto && (
-            <div className="mt-4 text-center">
-              <p className="text-gray-400 text-sm">
-                ⏱ Waktu siklus berbeda: Utara (17s) • Selatan (15s) • Timur (14.5s)
-              </p>
-            </div>
-          )}
-        </div>
-
-        {/* Traffic Lights Display */}
-        {globalView ? (
-          // Global View - Map Layout
-          <div className="relative bg-gray-800 rounded-xl p-8 min-h-[600px] border-2 border-gray-700 shadow-2xl">
-            <div className="absolute inset-0 opacity-10">
-              <div className="absolute top-1/2 left-0 right-0 h-1 bg-white transform -translate-y-1/2"></div>
-              <div className="absolute left-1/2 top-0 bottom-0 w-1 bg-white transform -translate-x-1/2"></div>
-            </div>
-
-            {lights.map((light) => (
-              <div key={light.id} className={absolute ${light.position} transform -translate-x-1/2 -translate-y-1/2}>
-                <TrafficLightComponent light={light} compact={true} />
-              </div>
-            ))}
-
-            <div className="absolute bottom-4 left-4 bg-gray-900 bg-opacity-90 rounded-lg p-3">
-              <p className="text-gray-300 text-xs font-semibold">🗺 Peta Persimpangan</p>
-            </div>
-          </div>
-        ) : (
-          // Detail View - Grid Layout
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {lights.map((light) => (
-              <TrafficLightComponent key={light.id} light={light} />
-            ))}
-          </div>
-        )}
-
-        {/* Info Section */}
-        <div className="mt-6 bg-gray-800 rounded-xl p-4 border border-gray-700">
-          <h3 className="text-white font-semibold mb-2 text-sm">📊 Informasi Sistem:</h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
-            {lights.map((light) => (
-              <div key={light.id} className="bg-gray-900 rounded-lg p-3">
-                <p className="text-gray-400 mb-1">{light.name}</p>
-                <p className="text-red-400">🔴 {light.intervals.red / 1000}s</p>
-                <p className="text-amber-400">🟡 {light.intervals.yellow / 1000}s</p>
-                <p className="text-emerald-400">🟢 {light.intervals.green / 1000}s</p>
-              </div>
-            ))}
-          </div>
+      <div class="stat" style="margin-left:auto">
+        <div style="font-size:18px;margin-right:8px">🚗</div>
+        <div style="line-height:1">
+          <div style="font-size:13px;color:var(--muted)">Total</div>
+          <div id="totalCars" style="font-weight:700">0 mobil</div>
         </div>
       </div>
     </div>
-  );
-}
+
+    <div style="height:18px"></div>
+
+    <!-- Display area -->
+    <div id="display" class="display-map">
+      <div class="grid-line"></div>
+      <div class="grid-col"></div>
+
+      <!-- Positions (will be populated) -->
+      <div id="positionsRoot"></div>
+    </div>
+
+    <div class="info">
+      <h3 style="margin:0 0 8px 0;font-size:15px">📊 Informasi Sistem:</h3>
+      <div class="info-grid" id="infoGrid"></div>
+    </div>
+  </div>
+
+  <script>
+    // -------- Configuration (mirip kode React asli) ----------
+    const trafficLightsConfig = [
+      {
+        id: 1,
+        name: 'Persimpangan Utara',
+        // map positions (as percent)
+        pos: { top: '20%', left: '25%' },
+        intervals: { red: 8000, yellow: 3000, green: 6000 } // ms
+      },
+      {
+        id: 2,
+        name: 'Persimpangan Selatan',
+        pos: { bottom: '20%', right: '25%' },
+        intervals: { red: 6000, yellow: 2000, green: 7000 } // ms
+      },
+      {
+        id: 3,
+        name: 'Persimpangan Timur',
+        pos: { top: '50%', right: '20%' },
+        intervals: { red: 7000, yellow: 2500, green: 5000 } // ms
+      }
+    ];
+
+    // -------- State ----------
+    let lights = trafficLightsConfig.map((light, idx) => ({
+      ...light,
+      activeLight: idx === 0 ? 'red' : idx === 1 ? 'green' : 'yellow',
+      timer: 0,
+      carCount: Math.floor(Math.random() * 10) + 5
+    }));
+
+    let isAuto = false;
+    let globalView = true;
+    let ticker = null;
+    const TICK_MS = 100;
+
+    // ---------- Helpers ----------
+    function clamp(v, a, b){ return Math.max(a, Math.min(b, v)); }
+
+    function getStatusText(color){
+      if(color === 'red') return 'Berhenti';
+      if(color === 'yellow') return 'Bersiap';
+      return 'Jalan';
+    }
+
+    function formatSeconds(msRemaining){
+      return Math.ceil(msRemaining / 1000) + 's';
+    }
+
+    // ---------- Rendering ----------
+    const positionsRoot = document.getElementById('positionsRoot');
+    const display = document.getElementById('display');
+    const totalCarsEl = document.getElementById('totalCars');
+    const infoGrid = document.getElementById('infoGrid');
+    const autoBtn = document.getElementById('autoBtn');
+    const viewBtn = document.getElementById('viewBtn');
+
+    function clearPositionsRoot(){ positionsRoot.innerHTML = ''; }
+
+    function createTrafficCard(light, compact=false){
+      const card = document.createElement('div');
+      card.className = 'tcard' + (compact ? ' compact' : '');
+      // Title + timer (if auto)
+      const header = document.createElement('div');
+      header.style.display = 'flex';
+      header.style.justifyContent = 'space-between';
+      header.style.alignItems = 'center';
+
+      const title = document.createElement('div');
+      title.className = 'title';
+      title.textContent = light.name;
+      if(compact) title.style.fontSize = '12px';
+
+      header.appendChild(title);
+
+      if(isAuto){
+        const tbox = document.createElement('div');
+        tbox.style.display='flex';
+        tbox.style.alignItems='center';
+        tbox.style.gap='6px';
+        const timerIcon = document.createElement('div');
+        timerIcon.textContent = '⏱';
+        timerIcon.style.opacity='0.9';
+        const remaining = Math.ceil((light.intervals[light.activeLight] - light.timer) / 1000);
+        const tspan = document.createElement('div');
+        tspan.style.fontWeight='700';
+        tspan.textContent = remaining + 's';
+        if(compact) tspan.style.fontSize='12px';
+        tbox.appendChild(timerIcon); tbox.appendChild(tspan);
+        header.appendChild(tbox);
+      }
+
+      card.appendChild(header);
+
+      // bulbs
+      const bulbs = document.createElement('div');
+      bulbs.className = 'bulbs';
+      const bulbSizes = compact ? 'bulb small' : 'bulb';
+      const red = document.createElement('div');
+      red.className = bulbSizes + ' red' + (light.activeLight === 'red' ? ' active' : '');
+      const yellow = document.createElement('div');
+      yellow.className = bulbSizes + ' yellow' + (light.activeLight === 'yellow' ? ' active' : '');
+      const green = document.createElement('div');
+      green.className = bulbSizes + ' green' + (light.activeLight === 'green' ? ' active' : '');
+
+      bulbs.appendChild(red); bulbs.appendChild(yellow); bulbs.appendChild(green);
+      card.appendChild(bulbs);
+
+      // status + cars
+      const bottom = document.createElement('div');
+      bottom.className = 'row';
+      const status = document.createElement('div');
+      status.className = 'status';
+      status.textContent = getStatusText(light.activeLight);
+      const cars = document.createElement('div');
+      cars.className = 'cars';
+      cars.textContent = '🚘 ' + light.carCount;
+
+      bottom.appendChild(status); bottom.appendChild(cars);
+      card.appendChild(bottom);
+
+      // manual buttons if not compact
+      if(!compact){
+        const ctrlRow = document.createElement('div');
+        ctrlRow.className = 'controls-row';
+        ['red','yellow','green'].forEach(c => {
+          const b = document.createElement('button');
+          b.className = 'tiny';
+          b.textContent = c === 'red' ? 'R' : c === 'yellow' ? 'Y' : 'G';
+          b.onclick = ()=> setManualLight(light.id, c);
+          // style colors
+          if(c==='red') b.style.background = '#dc2626';
+          if(c==='yellow') b.style.background = '#f59e0b';
+          if(c==='green') b.style.background = '#10b981';
+          b.style.color = 'white';
+          b.style.fontWeight = '700';
+          ctrlRow.appendChild(b);
+        });
+        card.appendChild(ctrlRow);
+      }
+
+      return card;
+    }
+
+    function render(){
+      // total cars
+      const total = lights.reduce((s,l)=> s + l.carCount, 0);
+      totalCarsEl.textContent = total + ' mobil';
+
+      // positions / map or detail
+      clearPositionsRoot();
+      if(globalView){
+        // map layout: place compact cards at specified positions
+        lights.forEach(light => {
+          const wrapper = document.createElement('div');
+          wrapper.className = 'pos';
+          // apply pos styles from config
+          if(light.pos.top) wrapper.style.top = light.pos.top;
+          if(light.pos.left) wrapper.style.left = light.pos.left;
+          if(light.pos.right) wrapper.style.left = 'auto';
+          if(light.pos.bottom) wrapper.style.top = 'auto';
+          if(light.pos.right) wrapper.style.right = light.pos.right;
+          if(light.pos.bottom) wrapper.style.bottom = light.pos.bottom;
+          // If both top and bottom specified, respect bottom; same for left/right.
+          // Ensure transform still centers:
+          wrapper.style.transform = 'translate(-50%,-50%)';
+          const card = createTrafficCard(light, true);
+          wrapper.appendChild(card);
+
+          positionsRoot.appendChild(wrapper);
+        });
+
+        // small map label
+        const mapLabel = document.createElement('div');
+        mapLabel.style.position='absolute';
+        mapLabel.style.left='12px'; mapLabel.style.bottom='12px';
+        mapLabel.style.background='rgba(255,255,255,0.03)'; mapLabel.style.padding='8px'; mapLabel.style.borderRadius='8px';
+        mapLabel.style.fontSize='13px'; mapLabel.style.color='#cbd5e1';
+        mapLabel.textContent = '🗺 Peta Persimpangan';
+        positionsRoot.appendChild(mapLabel);
+      } else {
+        // detail grid layout
+        const grid = document.createElement('div');
+        grid.className = 'detail-grid';
+        grid.style.position = 'relative';
+        grid.style.zIndex = 2;
+        grid.style.width = '100%';
+        grid.style.top = '20px';
+        // create full-size cards
+        lights.forEach(light => {
+          const cwrap = document.createElement('div');
+          cwrap.appendChild(createTrafficCard(light, false));
+          grid.appendChild(cwrap);
+        });
+        positionsRoot.appendChild(grid);
+      }
+
+      // info section
+      infoGrid.innerHTML = '';
+      lights.forEach(light => {
+        const info = document.createElement('div');
+        info.className = 'info-box';
+        info.innerHTML = `
+          <div style="font-weight:700;color:#fff;margin-bottom:6px">${light.name}</div>
+          <div style="color:#fb7185">🔴 ${light.intervals.red/1000}s</div>
+          <div style="color:#fbbf24">🟡 ${light.intervals.yellow/1000}s</div>
+          <div style="color:#34d399">🟢 ${light.intervals.green/1000}s</div>
+        `;
+        infoGrid.appendChild(info);
+      });
+    }
+
+    // ---------- Logic / Tick ----------
+    function tick(){
+      // advance timers only when isAuto true
+      if(!isAuto) return;
+      lights = lights.map(light => {
+        const currentInterval = light.intervals[light.activeLight];
+        const newTimer = light.timer + TICK_MS;
+        if(newTimer >= currentInterval){
+          let nextLight;
+          let newCarCount = light.carCount;
+          if(light.activeLight === 'red'){
+            nextLight = 'green';
+            newCarCount = Math.max(0, light.carCount - Math.floor(Math.random() * 5) - 3);
+          } else if(light.activeLight === 'green'){
+            nextLight = 'yellow';
+            newCarCount = light.carCount + Math.floor(Math.random() * 3);
+          } else {
+            nextLight = 'red';
+            newCarCount = light.carCount + Math.floor(Math.random() * 4) + 2;
+          }
+          return {...light, activeLight: nextLight, timer: 0, carCount: clamp(newCarCount, 0, 20)};
+        } else {
+          return {...light, timer: newTimer};
+        }
+      });
+      render();
+    }
+
+    function startTicker(){
+      if(ticker) clearInterval(ticker);
+      ticker = setInterval(tick, TICK_MS);
+    }
+    function stopTicker(){
+      if(ticker) clearInterval(ticker);
+      ticker = null;
+    }
+
+    // ---------- Manual control ----------
+    function setManualLight(id, color){
+      isAuto = false;
+      updateAutoButton();
+      lights = lights.map(l => l.id === id ? {...l, activeLight: color, timer: 0} : l);
+      render();
+    }
+
+    // ---------- UI events ----------
+    autoBtn.addEventListener('click', ()=>{
+      isAuto = !isAuto;
+      updateAutoButton();
+      if(isAuto) startTicker(); else stopTicker();
+      render();
+    });
+
+    viewBtn.addEventListener('click', ()=>{
+      globalView = !globalView;
+      viewBtn.textContent = globalView ? '📋 Detail View' : '🗺 Global View';
+      render();
+    });
+
+    function updateAutoButton(){
+      if(isAuto){
+        autoBtn.textContent = '⏸ Pause Otomatis';
+        autoBtn.classList.remove('play'); autoBtn.classList.add('pause');
+      } else {
+        autoBtn.textContent = '▶ Mulai Otomatis';
+        autoBtn.classList.remove('pause'); autoBtn.classList.add('play');
+      }
+    }
+
+    // ---------- init ----------
+    function init(){
+      render();
+      // start paused
+      updateAutoButton();
+      // start the ticker anyway (it will only update when isAuto true)
+      startTicker();
+    }
+
+    init();
+
+    // Clean up if page hidden
+    document.addEventListener('visibilitychange', ()=>{
+      if(document.hidden){ stopTicker(); } else { startTicker(); }
+    });
+
+    // make sure resize keeps layout sane
+    window.addEventListener('resize', ()=> render());
+  </script>
+</body>
+</html>
